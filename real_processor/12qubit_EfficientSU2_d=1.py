@@ -2,7 +2,7 @@
 # @time:5/28/25 15:59
 # @Author : Yuqi Zhang
 # @Email : yzhan135@kent.edu
-# @File:20qubit_EfficientSU2.py
+# @File:12qubit_EfficientSU2_d=1.py
 
 import logging
 import sys
@@ -90,3 +90,6 @@ if __name__ == '__main__':
     lu = LaboratoryUtils()
     probability_part = lu.readout_data_to_state_probabilities_part(result=exp_result[0])
     logging.info(f"Probability of result: {probability_part}")
+
+
+
