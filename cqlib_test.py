@@ -13,8 +13,8 @@ if __name__ == '__main__':
         import cqlib.remote as remote
         print("cqlib.remote:", dir(remote))
     except ImportError:
-        print("cqlib.remote 不存在")
+        print("cqlib.remote is not excited")
 
     for name in dir(cqlib):
         if name.lower().startswith(("client","api","service")):
-            print("可疑入口:", name)
+            print("API:", name)
