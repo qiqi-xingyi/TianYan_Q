@@ -1,0 +1,15 @@
+2025-05-28 15:27:08,183 INFO: H Q1
+X Q5
+H Q5
+CZ Q1 Q5
+H Q5
+M Q1
+M Q5
+2025-05-28 15:27:09,349 WARNING: _send_request execution failed
+try count:1 
+error info: 
+'Request error: {"msg":"{\\"CN\\":\\"QCIS指令中，CZ门不满足实验的拓扑结构(行:4)\\",\\"EN\\":\\"The CZgate does not satisfy the experimental topology in the QCIS command(row:4)\\"}","code":1}'
+2025-05-28 15:27:10,422 WARNING: _send_request execution failed
+try count:2 
+error info: 
+'Request error: {"msg":"{\\"CN\\":\\"QCIS指令中，CZ门不满足实验的拓扑结构(行:4)\\",\\"EN\\":\\"The CZgate does not satisfy the experimental topology in the QCIS command(row:4)\\"}","code":1}'
