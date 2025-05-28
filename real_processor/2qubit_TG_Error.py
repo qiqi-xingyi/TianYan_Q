@@ -30,9 +30,6 @@ if __name__ == '__main__':
 
     computer_list_data = platform.query_quantum_computer_list()
 
-    for computer_data in computer_list_data:
-        print(computer_data)
-
     platform.set_machine("tianyan504")
 
     circuit = Circuit(qubits=[1, 5])
@@ -44,7 +41,8 @@ if __name__ == '__main__':
     circuit.h(5)
     circuit.measure_all()
 
-    print(circuit.qcis)
+    # print(circuit.qcis)
+    logging.info(circuit.qcis)
 
     theta = Parameter('theta')
     circuit_para = Circuit(qubits=[0], parameters=[theta])
@@ -57,9 +55,9 @@ if __name__ == '__main__':
         num_shots=5000,
     )
 
-    print(f'query_id: {query_id_single}')
+    logging.info(f'query_id: {query_id_single}')
 
     exp_result = platform.query_experiment(query_id=query_id_single, max_wait_time=120, sleep_time=5)
 
     for res_name, res_data in exp_result[0].items():
-        print(f"{res_name} : {res_data}")
+        logging.info(f"{res_name} : {res_data}")
