@@ -4,6 +4,8 @@
 # @Email : yzhan135@kent.edu
 # @File:VQE.py
 
+# The code from https://blog.csdn.net/qq_41827983/article/details/144201844
+
 from mindquantum.core import Circuit, apply, RY
 from cqlib import TianYanPlatform, QuantumLanguage
 from copy import deepcopy

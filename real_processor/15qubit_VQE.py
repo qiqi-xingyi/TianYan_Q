@@ -4,7 +4,7 @@
 # @Email : yzhan135@kent.edu
 # @File:15qubit_VQE.py
 
-from mindquantum.core import Circuit, apply, RY, CNOT
+from mindquantum.core import Circuit, apply, RY
 from cqlib import TianYanPlatform, QuantumLanguage
 from copy import deepcopy
 import json
@@ -27,98 +27,109 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def compute_cost(result: dict):
-    return json.loads(result['probability'])['0']
+# def compute_cost(result: dict, num_qubits: int):
+#     probs = json.loads(result['probability'])
+#     zero_key = '0' * num_qubits
+#     return probs.get(zero_key, 0.0)
+
+def compute_cost(result: dict, num_qubits: int, shots: int):
+    counts = json.loads(result['counts'])     # bitstring -> counts
+    exp_sum = 0.0
+    for bitstr, c in counts.items():
+
+        z_vals = [1 if b == '0' else -1 for b in bitstr]
+        exp_sum += c * sum(z_vals)
+
+    return exp_sum / (shots * num_qubits)
+
 
 def hardware_run(circuits: list[Circuit], shots: int = 1000):
     tasks = [circ.to_qcis(parametric=False) for circ in circuits]
-    query_ids = platform.submit_experiment(
+    query_list = platform.submit_experiment(
         circuit=tasks,
         language=QuantumLanguage.QCIS,
         num_shots=shots
     )
     results = platform.query_experiment(
-        query_id=query_ids,
+        query_id=query_list,
         max_wait_time=600,
         sleep_time=5
     )
-    return [compute_cost(r) for r in results]
+    costs = []
+    # for res in results:
+    #     costs.append(compute_cost(res, num_qubits))
+    for res in results:
+        costs.append(compute_cost(res, num_qubits, shots))
+
+    return costs
 
 def get_cost_with_grads(circuit: Circuit):
-    encoder_names = circuit.encoder_params_name
-    ansatz_names = circuit.ansatz_params_name
-    shift = np.pi / 2
+    names_e = circuit.encoder_params_name
+    names_a = circuit.ansatz_params_name
+    h = np.pi / 2
 
-    def grad_ops(encoder_values, ansatz_values):
-        param_dict_e = dict(zip(encoder_names, encoder_values))
-        base_circuit = circuit.apply_value(param_dict_e)
+    def grad_ops(values_e, values_a):
+        circs = []
+        pr_e = dict(zip(names_e, values_e))
+        base = circuit.apply_value(pr_e)
 
-        circuits = []
-        circuits.append(base_circuit.apply_value(dict(zip(ansatz_names, ansatz_values))))
+        pr_0 = dict(zip(names_a, values_a))
+        circs.append(base.apply_value(pr_0))
 
-        circuits_p = []
-        circuits_n = []
-        for i in range(len(ansatz_values)):
-            v_p = ansatz_values.copy()
-            v_n = ansatz_values.copy()
-            v_p[i] += shift
-            v_n[i] -= shift
-            circuits_p.append(base_circuit.apply_value(dict(zip(ansatz_names, v_p))))
-            circuits_n.append(base_circuit.apply_value(dict(zip(ansatz_names, v_n))))
+        circs_p = []
+        circs_n = []
+        for i in range(len(values_a)):
+            vp = deepcopy(values_a)
+            vn = deepcopy(values_a)
+            vp[i] += h
+            vn[i] -= h
+            pr_p = dict(zip(names_a, vp))
+            pr_n = dict(zip(names_a, vn))
+            circs_p.append(base.apply_value(pr_p))
+            circs_n.append(base.apply_value(pr_n))
 
-        circuits.extend(circuits_p)
-        circuits.extend(circuits_n)
+        circs.extend(circs_p)
+        circs.extend(circs_n)
 
-        costs = hardware_run(circuits)
-        cost = costs[0]
-        cost_p = ms.Tensor(costs[1:1+len(ansatz_values)])
-        cost_n = ms.Tensor(costs[1+len(ansatz_values):])
+        costs = hardware_run(circs)
+        cost = costs.pop(0)
+        cost_p = ms.Tensor(costs[:len(values_a)])
+        cost_n = ms.Tensor(costs[len(values_a):])
         grads = (cost_p - cost_n) / 2
         return cost, grads
 
     return grad_ops
 
 if __name__ == '__main__':
-    # Create 15-qubit circuit
+    circ = Circuit()
     num_qubits = 15
-    circ = Circuit(num_qubits=num_qubits)
 
     # Encoder layer
     for i in range(num_qubits):
-        circ += RY(f'alpha{i}').on(i)
+        circ += RY('alpha').on(i)
     circ.as_encoder()
 
-    # Ansatz layer with chain entanglement
+    # Ansatz layer
     for i in range(num_qubits):
-        circ += RY(f'theta{i}').on(i)
-    for i in range(num_qubits - 1):
-        circ += CNOT().on(i, i + 1)
+        circ += RY('theta').on(i)
     circ.measure_all()
 
     # Map to physical qubits
-    physical_qubits = [259,273,287,301,315,329,343,357,371,385,399,413,427,441,455]
+    physical_qubits = [259, 273, 287, 301, 315, 329, 343, 357, 371, 385, 399, 413, 427, 441, 455]
     circ = apply(circ, physical_qubits)
 
-    # Get gradient operator
     grad_ops = get_cost_with_grads(circ)
 
-    # Initialize encoder values and parameters
-    encoder_values = ms.Tensor([np.pi / 2] * num_qubits)
-    thetas = [Parameter(ms.Tensor([0.0]), name=f'theta{i}') for i in range(num_qubits)]
-    optimizer = nn.SGD(thetas, learning_rate=0.5)
+    theta = Parameter(ms.Tensor([0.]), name='theta')
+    optim = nn.SGD([theta], learning_rate=0.5)
 
-    # Connect to quantum platform
     login_key = '/4tgPFVBopfQbgLOXE4JGnGLXOeBiTJzfDw9rrXF/wA='
     machine_name = 'tianyan504'
     platform = TianYanPlatform(login_key=login_key, machine_name=machine_name)
 
-    # Training loop
-    for step in range(20):
-        ansatz_values = ms.Tensor([t.asnumpy()[0] for t in thetas])
-        cost, grads = grad_ops(encoder_values, ansatz_values)
-        grads_list = grads.asnumpy().tolist()
-        thetas_list = [float(t.asnumpy()[0]) for t in thetas]
+    encoder_vals = ms.Tensor([np.pi/2] * num_qubits)
 
-        logger.info(f'Step {step:02d} | Thetas: {thetas_list} | Cost: {float(cost)} | Grads: {grads_list}')
-        grads_tuple = tuple(ms.Tensor([g]) for g in grads_list)
-        optimizer(grads_tuple)
+    for i in range(20):
+        cost, grads = grad_ops(encoder_vals, theta)
+        logger.info(f'step: {i}, theta: {theta.asnumpy()}, cost: {cost}, grads: {grads.asnumpy()}')
+        optim((grads,))
