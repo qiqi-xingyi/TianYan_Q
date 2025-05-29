@@ -27,20 +27,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# def compute_cost(result: dict, num_qubits: int):
-#     probs = json.loads(result['probability'])
-#     zero_key = '0' * num_qubits
-#     return probs.get(zero_key, 0.0)
-
-def compute_cost(result: dict, num_qubits: int, shots: int):
-    counts = json.loads(result['counts'])     # bitstring -> counts
-    exp_sum = 0.0
-    for bitstr, c in counts.items():
-
-        z_vals = [1 if b == '0' else -1 for b in bitstr]
-        exp_sum += c * sum(z_vals)
-
-    return exp_sum / (shots * num_qubits)
+def compute_cost(result: dict, num_qubits: int):
+    probs = json.loads(result['probability'])
+    zero_key = '0' * num_qubits
+    return probs.get(zero_key, 0.0)
 
 
 def hardware_run(circuits: list[Circuit], shots: int = 1000):
@@ -56,11 +46,8 @@ def hardware_run(circuits: list[Circuit], shots: int = 1000):
         sleep_time=5
     )
     costs = []
-    # for res in results:
-    #     costs.append(compute_cost(res, num_qubits))
     for res in results:
-        costs.append(compute_cost(res, num_qubits, shots))
-
+        costs.append(compute_cost(res, num_qubits))
     return costs
 
 def get_cost_with_grads(circuit: Circuit):
